@@ -22,6 +22,18 @@ package com.aperto.magnolia.vanity;
  * #L%
  */
 
+import static com.aperto.magnolia.vanity.app.LinkConverter.isExternalLink;
+import static info.magnolia.cms.util.RequestDispatchUtil.REDIRECT_PREFIX;
+import static info.magnolia.jcr.util.PropertyUtil.getString;
+import static info.magnolia.jcr.util.SessionUtil.getNodeByIdentifier;
+import static info.magnolia.repository.RepositoryConstants.WEBSITE;
+import static javax.jcr.query.Query.JCR_SQL2;
+import static org.apache.commons.lang.StringUtils.EMPTY;
+import static org.apache.commons.lang.StringUtils.defaultString;
+import static org.apache.commons.lang.StringUtils.isNotEmpty;
+import static org.apache.commons.lang.StringUtils.removeEnd;
+import static org.apache.commons.lang.StringUtils.removeStart;
+import static org.apache.commons.lang.StringUtils.replaceOnce;
 import info.magnolia.cms.beans.config.ServerConfiguration;
 import info.magnolia.context.MgnlContext;
 import info.magnolia.link.LinkUtil;
@@ -29,21 +41,11 @@ import info.magnolia.module.templatingkit.sites.Domain;
 import info.magnolia.module.templatingkit.sites.Site;
 import info.magnolia.module.templatingkit.sites.SiteManager;
 
-import org.apache.jackrabbit.value.StringValue;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableFutureTask;
-import com.google.inject.Key;
+import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.inject.Inject;
 import javax.inject.Named;
-import javax.jcr.LoginException;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
@@ -52,18 +54,8 @@ import javax.jcr.query.Query;
 import javax.jcr.query.QueryManager;
 import javax.jcr.query.QueryResult;
 
-import java.util.Collection;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-
-import static com.aperto.magnolia.vanity.app.LinkConverter.isExternalLink;
-import static info.magnolia.cms.util.RequestDispatchUtil.REDIRECT_PREFIX;
-import static info.magnolia.jcr.util.PropertyUtil.getString;
-import static info.magnolia.jcr.util.SessionUtil.getNodeByIdentifier;
-import static info.magnolia.repository.RepositoryConstants.WEBSITE;
-import static javax.jcr.query.Query.JCR_SQL2;
-import static org.apache.commons.lang.StringUtils.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Query service for vanity url nodes in vanity url workspace.
@@ -73,8 +65,7 @@ import static org.apache.commons.lang.StringUtils.*;
  */
 public class VanityUrlService {
     private static final Logger LOGGER = LoggerFactory.getLogger(VanityUrlService.class);
-
-    private static final String QUERY = "select * from [mgnl:vanityUrl] where vanityUrl = $vanityUrl and site = $site";
+   
     private static final String VANITY_URL_QUERY = "select * from [mgnl:vanityUrl]";
     public static final String NN_IMAGE = "qrCode";
     public static final String DEF_SITE = "default";
@@ -209,36 +200,6 @@ public class VanityUrlService {
         return link;
     }
 
-    /**
-     * Query for a vanity url node.
-     *
-     * @param vanityUrl
-     *            vanity url from request
-     * @param siteName
-     *            site name from aggegation state
-     * @return first vanity url node of result or null, if nothing found
-     */
-    public Node queryForVanityUrlNode(final String vanityUrl, final String siteName) {
-        Node node = null;
-
-        try {
-            Session jcrSession = MgnlContext.getJCRSession(VanityUrlModule.WORKSPACE);
-            QueryManager queryManager = jcrSession.getWorkspace().getQueryManager();
-            Query query = queryManager.createQuery(QUERY, JCR_SQL2);
-            query.bindValue(PN_VANITY_URL, new StringValue(vanityUrl));
-            query.bindValue(PN_SITE, new StringValue(siteName));
-            QueryResult queryResult = query.execute();
-            NodeIterator nodes = queryResult.getNodes();
-            if (nodes.hasNext()) {
-                node = nodes.nextNode();
-            }
-        } catch (RepositoryException e) {
-            LOGGER.error("Error message.", e);
-        }
-
-        return node;
-    }
-
     protected void reloadVanityUrlCache() throws Exception {
        vanityUrlCache.clear();
        Session jcrSession = MgnlContext.getJCRSession(VanityUrlModule.WORKSPACE);
@@ -261,7 +222,6 @@ public class VanityUrlService {
         
         if (System.currentTimeMillis() > lastCall + RELOAD_INTERVALL_TWO_MINUTES   ) {
             reloadVanityUrlCache();
-            System.out.println("Miss");
         }
         lastCall = System.currentTimeMillis();
         return vanityUrlCache.get(siteName + vanityUrl);

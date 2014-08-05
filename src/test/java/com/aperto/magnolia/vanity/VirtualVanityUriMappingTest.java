@@ -23,6 +23,10 @@ package com.aperto.magnolia.vanity;
  */
 
 
+import static org.hamcrest.core.IsNull.nullValue;
+import static org.junit.Assert.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import info.magnolia.cms.beans.config.VirtualURIMapping;
 import info.magnolia.cms.core.AggregationState;
 import info.magnolia.context.ContextFactory;
@@ -32,20 +36,13 @@ import info.magnolia.context.WebContext;
 import info.magnolia.module.ModuleRegistry;
 import info.magnolia.objectfactory.ComponentProvider;
 import info.magnolia.objectfactory.Components;
-import info.magnolia.test.mock.jcr.MockNode;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.hamcrest.core.IsEqual.equalTo;
-import static org.hamcrest.core.IsNull.notNullValue;
-import static org.hamcrest.core.IsNull.nullValue;
-import static org.junit.Assert.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Test for mapping.
@@ -86,15 +83,6 @@ public class VirtualVanityUriMappingTest {
         excludes.put("pages", ".*\\..*");
         module.setExcludes(excludes);
         _uriMapping.setVanityUrlModule(module);
-
-        VanityUrlService vanityUrlService = mock(VanityUrlService.class);
-        when(vanityUrlService.queryForVanityUrlNode("/home", "default")).thenReturn(null);
-
-        MockNode mockNode = new MockNode("xmas");
-        when(vanityUrlService.queryForVanityUrlNode("/xmas", "default")).thenReturn(mockNode);
-
-        when(vanityUrlService.createRedirectUrl(mockNode)).thenReturn("redirect:/internal/page.html");
-        _uriMapping.setVanityUrlService(vanityUrlService);
 
         ModuleRegistry moduleRegistry = mock(ModuleRegistry.class);
         _uriMapping.setModuleRegistry(moduleRegistry);
