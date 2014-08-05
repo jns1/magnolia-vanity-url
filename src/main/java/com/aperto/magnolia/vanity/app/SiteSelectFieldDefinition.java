@@ -54,7 +54,7 @@ public class SiteSelectFieldDefinition extends SelectFieldDefinition {
 
     @Override
     public List<SelectFieldOptionDefinition> getOptions() {
-        final List<SelectFieldOptionDefinition> options = new ArrayList<>();
+        final List<SelectFieldOptionDefinition> options = new ArrayList<SelectFieldOptionDefinition>();
 
         final List<Node> nodes = getNodes();
         if (nodes.isEmpty()) {

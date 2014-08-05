@@ -31,6 +31,7 @@ import info.magnolia.cms.beans.runtime.FileProperties;
 import info.magnolia.cms.core.Path;
 import info.magnolia.i18nsystem.SimpleTranslator;
 import info.magnolia.jcr.util.NodeTypes.Resource;
+import info.magnolia.jcr.util.NodeUtil;
 import info.magnolia.jcr.util.PropertyUtil;
 import info.magnolia.ui.api.action.ActionExecutionException;
 import info.magnolia.ui.form.EditorCallback;
@@ -38,6 +39,8 @@ import info.magnolia.ui.form.EditorValidator;
 import info.magnolia.ui.form.action.SaveFormAction;
 import info.magnolia.ui.form.action.SaveFormActionDefinition;
 import info.magnolia.ui.form.field.upload.UploadReceiver;
+import info.magnolia.ui.vaadin.integration.jcr.AbstractJcrNodeAdapter;
+import info.magnolia.ui.vaadin.integration.jcr.JcrNewNodeAdapter;
 import info.magnolia.ui.vaadin.integration.jcr.JcrNodeAdapter;
 
 import java.io.File;
@@ -45,7 +48,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
 
@@ -77,7 +82,7 @@ public class VanityUrlSaveFormAction extends SaveFormAction {
 
     private SimpleTranslator _simpleTranslator;
     private VanityUrlService _vanityUrlService;
-    private String _fileName;
+    private String fileName;
 
     public VanityUrlSaveFormAction(final SaveFormActionDefinition definition, final JcrNodeAdapter item, final EditorCallback callback, final EditorValidator validator) {
         super(definition, item, callback, validator);
@@ -89,7 +94,7 @@ public class VanityUrlSaveFormAction extends SaveFormAction {
             try {
                 savePreviewImage();
             } catch (IOException e) {
-                LOGGER.error("Error while saving vanity url", e);
+              LOGGER.error("Error while saving vanity url",e);
             }
         }
         super.execute();
@@ -101,11 +106,11 @@ public class VanityUrlSaveFormAction extends SaveFormAction {
         try {
             final Node node = item.applyChanges();
             String url = _vanityUrlService.createVanityUrl(node);
-            _fileName = trim(strip(getString(node, "vanityUrl", ""), "/")).replace("/", "-");
-            File tmpQrCodeFile = Path.getTempDirectory();
+            fileName = trim(strip(getString(node, "vanityUrl", ""), "/")).replace("/", "-");
+            File tmpQRCodeFile = Path.getTempDirectory();
 
-            UploadReceiver uploadReceiver = new UploadReceiver(tmpQrCodeFile, _simpleTranslator);
-            outputStream = (FileOutputStream) uploadReceiver.receiveUpload(_fileName + IMAGE_EXTENSION, "image/png");
+            UploadReceiver uploadReceiver = new UploadReceiver(tmpQRCodeFile, _simpleTranslator);
+            outputStream = (FileOutputStream)uploadReceiver.receiveUpload(fileName + IMAGE_EXTENSION, "image/png");
             QRCode.from(url).withSize(QR_WIDTH, GR_HEIGHT).writeTo(outputStream);
             Node qrNode = node.addNode(NN_IMAGE, Resource.NAME);
             
@@ -134,7 +139,7 @@ public class VanityUrlSaveFormAction extends SaveFormAction {
             try {
                 if (data == null) {
                     data = qrCodeNode.setProperty(JcrConstants.JCR_DATA, ValueFactoryImpl.getInstance().createBinary(inputStream));
-                } else {
+                }else{
                     data.setValue(ValueFactoryImpl.getInstance().createBinary(inputStream));
                 }
                 
@@ -143,13 +148,16 @@ public class VanityUrlSaveFormAction extends SaveFormAction {
                 return;
             }
         }
-        PropertyUtil.setProperty(qrCodeNode, FileProperties.PROPERTY_FILENAME, _fileName);
-
-        PropertyUtil.setProperty(qrCodeNode, FileProperties.PROPERTY_CONTENTTYPE, "image/png");
-           
-        Calendar  calValue = new GregorianCalendar(TimeZone.getDefault());
-
-        PropertyUtil.setProperty(qrCodeNode, FileProperties.PROPERTY_LASTMODIFIED, calValue);
+        PropertyUtil.setProperty(qrCodeNode, FileProperties.PROPERTY_FILENAME,fileName);
+//        qrCodeNode.getProperty(FileProperties.PROPERTY_FILENAME).setValue(fileName);
+        PropertyUtil.setProperty(qrCodeNode, FileProperties.PROPERTY_CONTENTTYPE,"image/png");
+      
+//        qrCodeNode.getProperty(FileProperties.PROPERTY_CONTENTTYPE).setValue("image/png");
+       
+       
+        Calendar  calValue = new GregorianCalendar (TimeZone.getDefault());
+//        qrCodeNode.getProperty(FileProperties.PROPERTY_LASTMODIFIED).setValue(calValue);
+        PropertyUtil.setProperty(qrCodeNode, FileProperties.PROPERTY_LASTMODIFIED,calValue);
   
     }
 

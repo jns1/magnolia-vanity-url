@@ -28,12 +28,14 @@ import info.magnolia.context.MgnlContext;
 import info.magnolia.module.ModuleRegistry;
 import info.magnolia.module.templatingkit.ExtendedAggregationState;
 import info.magnolia.module.templatingkit.sites.Site;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.jcr.Node;
 import javax.jcr.RepositoryException;
+
 import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
@@ -124,7 +126,17 @@ public class VirtualVanityUriMapping implements QueryAwareVirtualURIMapping {
                 new MgnlContext.Op<String, RepositoryException>() {
                     @Override
                     public String exec() throws RepositoryException {
-                        Node node = _vanityUrlService.queryForVanityUrlNode(vanityUrl, siteName);
+                        //Node node = _vanityUrlService.queryForVanityUrlNode(vanityUrl, siteName);
+                        Node node = null;
+                        try {
+                            node = _vanityUrlService.getVanityUrl(vanityUrl, siteName);
+                        } catch (Exception e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
+                      
+                      
+                        
                         return _vanityUrlService.createRedirectUrl(node);
                     }
                 }

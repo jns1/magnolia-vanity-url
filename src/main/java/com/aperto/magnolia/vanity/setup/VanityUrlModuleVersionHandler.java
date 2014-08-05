@@ -23,20 +23,21 @@ package com.aperto.magnolia.vanity.setup;
  */
 
 
-import info.magnolia.module.DefaultModuleVersionHandler;
-import info.magnolia.module.InstallContext;
-import info.magnolia.module.delta.Task;
-import info.magnolia.nodebuilder.task.NodeBuilderTask;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import static com.aperto.magnolia.vanity.VanityUrlModule.WORKSPACE;
-import static info.magnolia.jcr.util.NodeTypes.ContentNode;
 import static info.magnolia.nodebuilder.Ops.addNode;
 import static info.magnolia.nodebuilder.Ops.addProperty;
 import static info.magnolia.nodebuilder.task.ErrorHandling.logging;
 import static info.magnolia.repository.RepositoryConstants.CONFIG;
+import info.magnolia.jcr.util.NodeTypes.ContentNode;
+import info.magnolia.module.DefaultModuleVersionHandler;
+import info.magnolia.module.InstallContext;
+import info.magnolia.module.delta.DeltaBuilder;
+import info.magnolia.module.delta.Task;
+import info.magnolia.nodebuilder.task.NodeBuilderTask;
+import info.magnolia.ui.contentapp.setup.for5_3.ContentAppMigrationTask;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Module version handler of this magnolia module.
@@ -44,7 +45,13 @@ import static info.magnolia.repository.RepositoryConstants.CONFIG;
  * @author frank.sommer
  */
 public class VanityUrlModuleVersionHandler extends DefaultModuleVersionHandler {
+    
+    
+    public VanityUrlModuleVersionHandler() {
+        register( DeltaBuilder.update("1.2.1", "").addTask(new ContentAppMigrationTask("/modules/magnolia-vanity-url")) );
 
+    }
+    
     private final Task _addAppToLauncher = new NodeBuilderTask("Add app to app launcher", "Add vanity url app to app launcher.", logging, CONFIG, "/modules/ui-admincentral/config/appLauncherLayout/groups/manage/apps",
         addNode("vanityUrl", ContentNode.NAME)
     );
@@ -59,7 +66,7 @@ public class VanityUrlModuleVersionHandler extends DefaultModuleVersionHandler {
 
     @Override
     protected List<Task> getExtraInstallTasks(final InstallContext installContext) {
-        List<Task> tasks = new ArrayList<>();
+        List<Task> tasks = new ArrayList<Task>();
         tasks.add(_addAppToLauncher);
         tasks.add(_addUriRepositoryMapping);
         return tasks;

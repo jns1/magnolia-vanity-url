@@ -22,19 +22,28 @@ package com.aperto.magnolia.vanity;
  * #L%
  */
 
-
 import info.magnolia.cms.beans.config.ServerConfiguration;
 import info.magnolia.context.MgnlContext;
 import info.magnolia.link.LinkUtil;
 import info.magnolia.module.templatingkit.sites.Domain;
 import info.magnolia.module.templatingkit.sites.Site;
 import info.magnolia.module.templatingkit.sites.SiteManager;
+
 import org.apache.jackrabbit.value.StringValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableFutureTask;
+import com.google.inject.Key;
+
 import javax.inject.Inject;
 import javax.inject.Named;
+import javax.jcr.LoginException;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
@@ -42,7 +51,11 @@ import javax.jcr.Session;
 import javax.jcr.query.Query;
 import javax.jcr.query.QueryManager;
 import javax.jcr.query.QueryResult;
+
 import java.util.Collection;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import static com.aperto.magnolia.vanity.app.LinkConverter.isExternalLink;
 import static info.magnolia.cms.util.RequestDispatchUtil.REDIRECT_PREFIX;
@@ -62,13 +75,18 @@ public class VanityUrlService {
     private static final Logger LOGGER = LoggerFactory.getLogger(VanityUrlService.class);
 
     private static final String QUERY = "select * from [mgnl:vanityUrl] where vanityUrl = $vanityUrl and site = $site";
+    private static final String VANITY_URL_QUERY = "select * from [mgnl:vanityUrl]";
     public static final String NN_IMAGE = "qrCode";
     public static final String DEF_SITE = "default";
     private static final String PN_SITE = "site";
     private static final String PN_VANITY_URL = "vanityUrl";
     private static final String PN_LINK = "link";
     private static final String PN_SUFFIX = "linkSuffix";
-
+    private ConcurrentHashMap<String, Node> vanityUrlCache = new ConcurrentHashMap<String, Node>();
+    private long lastCall = 0;
+    private static long RELOAD_INTERVALL_TWO_MINUTES = 2000;
+    
+    
     @Inject
     @Named(value = "magnolia.contextpath")
     private String _contextPath = "";
@@ -79,7 +97,8 @@ public class VanityUrlService {
     /**
      * Creates the redirect url for uri mapping.
      *
-     * @param node vanity url node
+     * @param node
+     *            vanity url node
      * @return redirect url
      */
     public String createRedirectUrl(final Node node) {
@@ -93,7 +112,8 @@ public class VanityUrlService {
     /**
      * Creates the public url for displaying as target link in app view.
      *
-     * @param node vanity url node
+     * @param node
+     *            vanity url node
      * @return public url
      */
     public String createPublicUrl(final Node node) {
@@ -103,7 +123,8 @@ public class VanityUrlService {
     /**
      * Creates the vanity url for public instance, stored in qr code.
      *
-     * @param node vanity url node
+     * @param node
+     *            vanity url node
      * @return vanity url
      */
     public String createVanityUrl(final Node node) {
@@ -132,7 +153,8 @@ public class VanityUrlService {
     /**
      * Creates the preview url for app preview.
      *
-     * @param node vanity url node
+     * @param node
+     *            vanity url node
      * @return preview url
      */
     public String createPreviewUrl(final Node node) {
@@ -170,7 +192,8 @@ public class VanityUrlService {
     /**
      * Create the link to the qr image without context path.
      *
-     * @param node vanity url node
+     * @param node
+     *            vanity url node
      * @return link to qr image
      */
     public String createImageLink(final Node node) {
@@ -189,8 +212,10 @@ public class VanityUrlService {
     /**
      * Query for a vanity url node.
      *
-     * @param vanityUrl vanity url from request
-     * @param siteName  site name from aggegation state
+     * @param vanityUrl
+     *            vanity url from request
+     * @param siteName
+     *            site name from aggegation state
      * @return first vanity url node of result or null, if nothing found
      */
     public Node queryForVanityUrlNode(final String vanityUrl, final String siteName) {
@@ -214,6 +239,35 @@ public class VanityUrlService {
         return node;
     }
 
+    protected void reloadVanityUrlCache() throws Exception {
+       vanityUrlCache.clear();
+       Session jcrSession = MgnlContext.getJCRSession(VanityUrlModule.WORKSPACE);
+       QueryManager queryManager = jcrSession.getWorkspace().getQueryManager();
+       Query query = queryManager.createQuery(VANITY_URL_QUERY, JCR_SQL2);
+       QueryResult queryResult = query.execute();
+       NodeIterator nodes = queryResult.getNodes();
+       while (nodes.hasNext()) {
+        Node node = (Node) nodes.next();
+        if (node.hasProperty(PN_SITE) && node.hasProperty(PN_VANITY_URL) ) {
+            String key = node.getProperty(PN_SITE).getValue().getString()+ node.getProperty(PN_VANITY_URL).getValue().getString();
+            vanityUrlCache.put(key, node);
+        }
+        
+       }       
+    }
+        
+    
+    public Node getVanityUrl(final String vanityUrl, final String siteName) throws Exception {
+        
+        if (System.currentTimeMillis() > lastCall + RELOAD_INTERVALL_TWO_MINUTES   ) {
+            reloadVanityUrlCache();
+            System.out.println("Miss");
+        }
+        lastCall = System.currentTimeMillis();
+        return vanityUrlCache.get(siteName + vanityUrl);
+        
+    }
+    
     /**
      * Override for testing.
      */

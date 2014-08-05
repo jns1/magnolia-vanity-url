@@ -75,19 +75,14 @@ public class VirtualVanityUriMappingTest {
         assertThat(mappingResult, nullValue());
     }
 
-    @Test
-    public void testVanityUrlWithTarget() {
-        VirtualURIMapping.MappingResult mappingResult = _uriMapping.mapURI("/xmas");
-        assertThat(mappingResult, notNullValue());
-        assertThat(mappingResult.getToURI(), equalTo("redirect:/internal/page.html"));
-    }
+ 
 
     @Before
     public void setUp() throws Exception {
         _uriMapping = new VirtualVanityUriMapping();
 
         VanityUrlModule module = new VanityUrlModule();
-        Map<String, String> excludes = new HashMap<>();
+        Map<String, String> excludes = new HashMap<String, String>();
         excludes.put("pages", ".*\\..*");
         module.setExcludes(excludes);
         _uriMapping.setVanityUrlModule(module);
